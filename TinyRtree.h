@@ -32,7 +32,7 @@ public:
 
     struct Rect{
         Rect() = default;
-        Rect(std::initializer_list<Tk> list){ // Rect( {10, 20, 30, 40 }) ;
+        Rect(std::initializer_list<Tk> list){ // Rect({ L1, L2, U1, U2 }) ;
             int i = 0;
             for (Tk elem : list){
                 i < DIMS ? m_min[i] = elem : m_max[i-DIMS] = elem;
@@ -94,17 +94,26 @@ RTREE_TEMPLATEE
 void TINYRTREE::Insert(Rect rect, IDtype id){
 
     Node new_node_next_level;
+    new_node_next_level.m_level = m_root.m_level;
     bool split = RecursiveInsert(rect, id, m_root, new_node_next_level);
-    if(split){
-        Node new_root;
-        new_root.children.push_back(m_root);
-        new_root.children.push_back(new_node_next_level);
-        new_root.num_children = 2;
-        new_root.m_rect = CombineRect(m_root.m_rect, new_node_next_level.m_rect);
-        new_root.m_level = m_root.m_level + 1;
-        m_root = new_root; // will this have some bugs?
-    }
 
+    if(split){
+        if(m_root.num_children < MaxNodes){
+            new_node_next_level.m_level = m_root.m_level - 1;
+            m_root.children.push_back(new_node_next_level);
+            m_root.num_children++;
+            m_root.m_rect = CombineRect(m_root.m_rect, new_node_next_level.m_rect);
+        } else {
+            new_node_next_level.m_level = m_root.m_level;
+            Node new_root;
+            new_root.children.push_back(m_root);
+            new_root.children.push_back(new_node_next_level);
+            new_root.num_children = 2;
+            new_root.m_rect = CombineRect(m_root.m_rect, new_node_next_level.m_rect);
+            new_root.m_level = m_root.m_level + 1;
+            m_root = new_root; // will this have some bugs?
+        }
+    }
 }
 
 RTREE_TEMPLATEE
@@ -139,11 +148,13 @@ bool TINYRTREE::RecursiveInsert(Rect &rect, IDtype &id, Node &current_node, Node
         if(split){
             // insert new node next level to this node
             if(current_node.num_children < MaxNodes){
+                new_node_next_level.m_level = current_node.m_level - 1;
                 current_node.children.push_back(new_node_next_level);
                 current_node.num_children++;
                 current_node.m_rect = CombineRect(current_node.m_rect, new_node_next_level.m_rect);
                 return false;
             } else {
+                new_node_next_level.m_level = current_node.m_level;
                 current_node.children.push_back(new_node_next_level);
                 current_node.num_children++;
                 SplitNode(current_node, new_node); // insert this newNode back to its parent node
@@ -191,11 +202,13 @@ void TINYRTREE::SplitNode(Node &current_node, Node &new_node){
     current_node.children.push_back(node_buffer[index1]);
     current_node.m_rect = node_buffer[index1].m_rect;
     current_node.m_volume = RectVolume(current_node.m_rect);
+    current_node.num_children = 1;
 
     new_node.children.clear();
     new_node.children.push_back(node_buffer[index2]);
     new_node.m_rect = node_buffer[index2].m_rect;
     new_node.m_volume = RectVolume(new_node.m_rect);
+    new_node.num_children = 1;
 
     node_buffer.erase(node_buffer.begin() + index2); // index2 is larger than index1
     node_buffer.erase(node_buffer.begin() + index1);
@@ -226,10 +239,12 @@ void TINYRTREE::SplitNode(Node &current_node, Node &new_node){
             current_node.children.push_back(node_buffer[picked_index]);
             current_node.m_rect = CombineRect(node_buffer[picked_index].m_rect, current_node.m_rect);
             current_node.m_volume = RectVolume(current_node.m_rect);
+            current_node.num_children += 1;
         } else {
             new_node.children.push_back(node_buffer[picked_index]);
             new_node.m_rect = CombineRect(node_buffer[picked_index].m_rect, new_node.m_rect);
             new_node.m_volume = RectVolume(new_node.m_rect);
+            new_node.num_children += 1;
         }
 
         // delete this node from buffer

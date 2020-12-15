@@ -16,8 +16,8 @@ int main() {
 //    double vol = tiny_rtree.RectVolume(rect);
 //    cout << "volume: " << vol << endl;
 
-    for (int i = 0; i < 5; i++){
-        RT::Rect rect({(double)i, (double)i, 2*(double)i, 2*(double)i});
+    for (int i = 0; i < 800; i++){
+        RT::Rect rect({ (double)i, (double)i, 2*(double)i, 2*(double)i });
         tiny_rtree.Insert(rect,i);
     }
 
